@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vocab Master - Clear The Board</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&display=swap');
+
+        body {
+            background: #0f172a;
+            font-family: 'Outfit', sans-serif;
+            touch-action: none;
+            overflow: hidden;
+            color: #f1f5f9;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .main-wrapper {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            max-width: 1200px;
+            height: 100%;
+            margin: 0 auto;
+            padding: 1.5rem;
+            gap: 1.5rem;
+            box-sizing: border-box;
+        }
+
+        .layout-container {
+            display: grid;
+            grid-template-columns: 1.5fr 1fr;
+            gap: 1.5rem;
+            flex: 1;
+            min-height: 0;
+        }
+
+        .game-board-wrapper {
+            display: flex;
+            flex-direction: column;
+            background: #1e293b;
+            border-radius: 24px;
+            border: 2px solid #334155;
+            padding: 1.5rem;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+            height: 100%;
+        }
+
+        .game-container {
+            display: grid;
+            grid-template-columns: repeat(10, 1fr);
+            gap: 6px;
+            background: #0f172a;
+            padding: 10px;
+            border-radius: 16px;
+            position: relative;
+            user-select: none;
+            touch-action: none;
+            width: 100%;
+            aspect-ratio: 1/1;
+            max-width: 500px;
+            margin: auto;
+        }
+
+        .cell {
+            aspect-ratio: 1/1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            font-size: clamp(1rem, 2vw, 1.4rem);
+            background: #334155;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            z-index: 10;
+            color: #f8fafc;
+            border-bottom: 4px solid #020617;
+        }
+
+            .cell.selected {
+                background: #3b82f6;
+                transform: translateY(-2px);
+                box-shadow: 0 0 15px rgba(59, 130, 246, 0.6);
+                border-bottom-width: 2px;
+                z-index: 30;
+            }
+
+            .cell.empty {
+                background: transparent;
+                border: none;
+                pointer-events: none;
+                opacity: 0;
+            }
+
+            .cell.removing {
+                animation: popOut 0.4s forwards cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            }
+
+        @keyframes popOut {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+                background: #10b981;
+            }
+
+            100% {
+                transform: scale(0);
+                opacity: 0;
+            }
+        }
+
+        #selection-line {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 20;
+        }
+
+        .log-panel {
+            background: #1e293b;
+            border-radius: 24px;
+            border: 2px solid #334155;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+            height: 100%;
+        }
+
+        .log-history {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            background: rgba(15, 23, 42, 0.3);
+        }
+
+            .log-history::-webkit-scrollbar {
+                width: 6px;
+            }
+
+            .log-history::-webkit-scrollbar-thumb {
+                background: #475569;
+                border-radius: 10px;
+            }
+
+        .word-item {
+            background: #1e293b;
+            padding: 0.85rem 1rem;
+            border-radius: 12px;
+            animation: slideIn 0.3s ease-out;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid #334155;
+            border-left: 4px solid #3b82f6;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(20px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .toast {
+            position: fixed;
+            top: 1.5rem;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #f59e0b;
+            color: #000;
+            padding: 0.6rem 1.5rem;
+            border-radius: 9999px;
+            font-weight: 800;
+            z-index: 100;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+            display: none;
+        }
+
+        @media (max-width: 850px) {
+            /* Chuyển bố cục thành 1 cột dọc */
+            .layout-container {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+
+            body {
+                height: auto;
+                overflow-y: auto; /* Cho phép cuộn lên xuống trên mobile */
+            }
+
+            .main-wrapper {
+                height: auto;
+                padding: 1rem;
+                gap: 1rem;
+            }
+
+            /* Tối ưu lại Header để không chiếm nhiều diện tích */
+            header {
+                flex-direction: column;
+                padding: 1rem;
+                gap: 1rem;
+                border-radius: 20px;
+            }
+
+                header > div:first-child {
+                    width: 100%;
+                    justify-content: center;
+                }
+
+                header > .flex.gap-4.items-center {
+                    width: 100%;
+                    justify-content: space-around; /* Dàn đều điểm và nút reset */
+                }
+
+            /* Xóa chiều cao cứng của game board để tự động co giãn */
+            .game-board-wrapper {
+                height: auto;
+                min-height: unset;
+                padding: 1rem;
+                border-radius: 20px;
+            }
+
+            /* Thu nhỏ khoảng cách và viền các ô chữ để vừa màn hình */
+            .game-container {
+                max-width: 100%;
+                gap: 4px;
+                padding: 6px;
+            }
+
+            .cell {
+                font-size: clamp(0.9rem, 4vw, 1.2rem);
+                border-bottom-width: 2px;
+                border-radius: 6px;
+            }
+
+                .cell.selected {
+                    border-bottom-width: 1px;
+                }
+
+            /* Thu gọn chữ hiển thị từ vựng đang chọn */
+            #current-word {
+                font-size: 2rem;
+                letter-spacing: 0.1em;
+            }
+
+            .h-16 {
+                height: 3rem;
+            }
+
+            /* Tối ưu khung nhật ký từ vựng */
+            .log-panel {
+                height: 350px;
+                border-radius: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="toast" class="toast">🔄 ĐANG LÀM MỚI BẢNG TỪ...</div>
+
+    <div class="main-wrapper">
+        <header class="w-full flex justify-between items-center bg-slate-800/80 backdrop-blur-md p-4 rounded-3xl border border-slate-700 shadow-xl">
+            <div class="flex items-center gap-4">
+                <div class="bg-blue-600 p-2.5 rounded-2xl shadow-lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-xl font-black text-white tracking-tight leading-none">VOCAB MASTER</h1>
+                    <p class="text-[10px] text-blue-400 font-bold uppercase tracking-widest mt-0.5">Clear the board</p>
+                </div>
+            </div>
+
+            <div class="flex gap-4 items-center">
+                <div class="px-4 border-l border-slate-700 text-right">
+                    <span class="text-[10px] uppercase text-slate-500 font-bold block">Còn lại</span>
+                    <span id="remaining-count" class="text-xl font-black text-emerald-400 leading-none">100</span>
+                </div>
+                <div class="px-4 border-l border-slate-700 text-right">
+                    <span class="text-[10px] uppercase text-slate-500 font-bold block">Điểm</span>
+                    <span id="score-val" class="text-xl font-black text-white leading-none">0</span>
+                </div>
+                <button onclick="resetGame()" class="bg-slate-700 hover:bg-red-600 text-white p-2.5 rounded-xl transition-all shadow-lg active:scale-95 group">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 group-hover:rotate-180 transition-transform duration-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+        <div class="layout-container">
+            <div class="game-board-wrapper">
+                <div id="game-board" class="game-container">
+                    <svg id="selection-line"></svg>
+                </div>
+
+                <div class="w-full max-w-[500px] mt-4">
+                    <div class="h-16 bg-slate-900/60 rounded-2xl border-2 border-dashed border-slate-700 flex items-center justify-center">
+                        <span id="current-word" class="text-4xl font-black tracking-[0.2em] text-blue-400 uppercase opacity-0 transition-all transform scale-90">---</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="log-panel">
+                <div class="p-5 border-b border-slate-700 bg-slate-800/50 flex justify-between items-center">
+                    <div>
+                        <h3 class="font-black text-base text-white uppercase tracking-wider">Nhật ký từ vựng</h3>
+                    </div>
+                    <span id="word-count" class="bg-blue-600/20 text-blue-400 border border-blue-500/30 px-3 py-1 rounded-full text-[10px] font-black uppercase">0 TỪ</span>
+                </div>
+                <div id="history" class="log-history">
+                    <div id="empty-log" class="text-center text-slate-600 text-sm mt-10 font-medium italic">
+                        Kéo các chữ cái để bắt đầu...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="win-modal" class="fixed inset-0 bg-slate-950/90 hidden z-50 flex items-center justify-center p-4 backdrop-blur-md">
+        <div class="bg-slate-800 p-10 rounded-[40px] border-4 border-emerald-500 text-center max-w-sm w-full shadow-2xl">
+            <div class="text-7xl mb-4 animate-bounce">🏆</div>
+            <h2 class="text-3xl font-black text-white mb-2 tracking-tight">XUẤT SẮC!</h2>
+            <p class="text-slate-400 mb-6 text-sm">Bạn đã dọn sạch toàn bộ bảng chữ cái.</p>
+            <button onclick="resetGame()" class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-900 py-4 rounded-xl font-black text-lg transition-all active:scale-95 shadow-lg">CHƠI LẠI</button>
+        </div>
+    </div>
+
+    <script>
+        // Mở rộng vốn từ vựng đa dạng hơn
+        const VOCAB_DATA = {
+            "ACTION": { "ABANDON": "Rời bỏ", "ABILITY": "Khả năng", "ACCEPT": "Chấp nhận", "ACCOUNT": "Tài khoản", "ACHIEVE": "Đạt được", "ACQUIRE": "Giành được", "ACTUAL": "Thực tế", "ADAPT": "Thích nghi", "ADDRESS": "Địa chỉ", "ADJUST": "Điều chỉnh", "ADMIRE": "Ngưỡng mộ", "ADMIT": "Thừa nhận", "ADOPT": "Nhận nuôi", "ADVICE": "Lời khuyên", "AFFORD": "Đủ điều kiện", "AGREE": "Đồng ý", "AHEAD": "Phía trước", "ALLOW": "Cho phép", "ALTER": "Thay đổi", "ANALYZE": "Phân tích", "ANSWER": "Trả lời", "APPEAR": "Xuất hiện", "APPLY": "Áp dụng", "APPROVE": "Tán thành", "ARGUE": "Tranh luận", "ARISE": "Nảy sinh", "ARRANGE": "Sắp xếp", "ARRIVE": "Đến", "ASSERT": "Khẳng định", "ASSESS": "Đánh giá", "ASSIGN": "Phân công", "ASSIST": "Giúp đỡ", "ASSUME": "Giả định", "ATTACK": "Tấn công", "ATTEND": "Tham dự", "ATTRACT": "Thu hút", "AVOID": "Tránh", "AWAIT": "Chờ đợi", "AWAKE": "Đánh thức", "BAKE": "Nướng", "BALANCE": "Cân bằng", "BATTLE": "Chiến đấu", "BEAR": "Chịu đựng", "BEAT": "Đánh", "BECOME": "Trở thành", "BEGIN": "Bắt đầu", "BEHAVE": "Cư xử", "BELIEVE": "Tin tưởng", "BELONG": "Thuộc về", "BEND": "Uốn cong", "BIND": "Trói buộc", "BITE": "Cắn", "BLAME": "Đổ lỗi", "BLEND": "Pha trộn", "BLESS": "Ban phước", "BLOCK": "Chặn", "BLOOM": "Nở hoa", "BLOW": "Thổi", "BOIL": "Sôi", "BOND": "Liên kết", "BORROW": "Mượn", "BOUNCE": "Nảy", "BREAK": "Phá vỡ", "BREATH": "Thở", "BRING": "Mang", "BUILD": "Xây dựng", "BURN": "Đốt", "BURST": "Nổ tung", "BURY": "Chôn", "CALL": "Gọi", "CANCEL": "Hủy", "CAPTURE": "Bắt giữ", "CARRY": "Mang", "CATCH": "Bắt", "CAUSE": "Gây ra", "CEASE": "Ngừng", "CHALLENGE": "Thử thách", "CHANGE": "Thay đổi", "CHARGE": "Tính phí", "CHASE": "Đuổi theo", "CHEAT": "Gian lận", "CHECK": "Kiểm tra", "CHEER": "Cổ vũ", "CHOOSE": "Chọn", "CLAIM": "Yêu cầu", "CLEAN": "Làm sạch", "CLEAR": "Làm rõ", "CLIMB": "Leo", "CLOSE": "Đóng", "COLLECT": "Thu thập", "COMBINE": "Kết hợp", "COMMAND": "Ra lệnh", "COMMIT": "Cam kết", "COMPARE": "So sánh", "COMPEL": "Bắt buộc", "COMPETE": "Cạnh tranh", "COMPOSE": "Soạn thảo", "COMPUTE": "Tính toán", "CONCEAL": "Che giấu", "CONCERN": "Lo lắng", "CONCLUDE": "Kết luận", "CONDUCT": "Tiến hành", "CONFESS": "Thú nhận", "CONFIRM": "Xác nhận", "CONNECT": "Kết nối", "CONQUER": "Chinh phục", "CONSENT": "Đồng ý", "CONSIST": "Bao gồm", "CONSOLE": "An ủi", "CONSULT": "Tham khảo", "CONSUME": "Tiêu thụ", "CONTAIN": "Chứa đựng", "CONTROL": "Kiểm soát", "CONVERT": "Chuyển đổi", "CONVEY": "Truyền đạt", "CONVINCE": "Thuyết phục", "COOK": "Nấu", "COPY": "Sao chép", "CORRECT": "Sửa chữa", "COUNT": "Đếm", "COVER": "Che phủ", "CRASH": "Va chạm", "CRAWL": "Bò", "CREATE": "Tạo ra", "CROSS": "Vượt qua", "CRUSH": "Nghiền nát", "CRY": "Khóc", "CURE": "Chữa trị", "CUT": "Cắt", "DAMAGE": "Làm hỏng", "DANCE": "Nhảy múa", "DARE": "Dám", "DASH": "Lao tới", "DEAL": "Giao dịch", "DEBATE": "Tranh luận", "DECAY": "Mục nát", "DECIDE": "Quyết định", "DECLARE": "Tuyên bố", "DECLINE": "Từ chối", "DEFEAT": "Đánh bại", "DEFEND": "Phòng thủ", "DEFINE": "Định nghĩa", "DELAY": "Trì hoãn", "DELETE": "Xóa", "DELIVER": "Giao hàng", "DEMAND": "Yêu cầu", "DENY": "Phủ nhận", "DEPART": "Khởi hành", "DEPEND": "Phụ thuộc", "DEPICT": "Miêu tả", "DEPLOY": "Triển khai", "DEPOSIT": "Gửi tiền", "DEPRESS": "Làm chán nản", "DERIVE": "Bắt nguồn", "DESCRIBE": "Miêu tả", "DESERVE": "Xứng đáng", "DESIGN": "Thiết kế", "DESIRE": "Khao khát", "DESTROY": "Phá hủy", "DETECT": "Phát hiện", "DEVELOP": "Phát triển", "DEVOTE": "Cống hiến", "DICTATE": "Ra lệnh", "DIE": "Chết", "DIFFER": "Khác biệt", "DIG": "Đào", "DIGEST": "Tiêu hóa", "DIRECT": "Hướng dẫn", "DISAGREE": "Không đồng ý", "DISCOVER": "Khám phá", "DISCUSS": "Thảo luận", "DISMISS": "Sa thải", "DISPLAY": "Hiển thị", "DIVIDE": "Chia", "DO": "Làm", "DONATE": "Quyên góp", "DOUBT": "Nghi ngờ", "DRAG": "Kéo", "DRAW": "Vẽ", "DREAM": "Mơ", "DRESS": "Mặc", "DRIFT": "Trôi dạt", "DRILL": "Khoan", "DRINK": "Uống", "DRIVE": "Lái xe", "DROP": "Rơi", "DROWN": "Chết đuối", "DRY": "Làm khô", "DUMP": "Vứt bỏ", "EARN": "Kiếm được", "EAT": "Ăn", "EDIT": "Chỉnh sửa", "EDUCATE": "Giáo dục", "ELECT": "Bầu cử", "EMBRACE": "Ôm/Đón nhận", "EMERGE": "Nổi lên", "EMPLOY": "Thuê", "ENABLE": "Cho phép", "ENACT": "Ban hành", "ENCOURAGE": "Khuyến khích", "END": "Kết thúc", "ENDURE": "Chịu đựng", "ENGAGE": "Tham gia", "ENJOY": "Thưởng thức", "ENROLL": "Đăng ký", "ENSURE": "Đảm bảo", "ENTER": "Đi vào", "EQUIP": "Trang bị", "ERASE": "Xóa", "ESCAPE": "Trốn thoát", "ESTABLISH": "Thành lập", "ESTIMATE": "Ước tính", "EVALUATE": "Đánh giá", "EVOLVE": "Tiến hóa", "EXAMINE": "Kiểm tra", "EXCEED": "Vượt quá", "EXCHANGE": "Trao đổi", "EXCITE": "Kích thích", "EXCUSE": "Tha thứ", "EXECUTE": "Thực thi", "EXERCISE": "Tập luyện", "EXERT": "Nỗ lực", "EXHIBIT": "Trưng bày", "EXIST": "Tồn tại", "EXPAND": "Mở rộng", "EXPECT": "Mong đợi", "EXPERIENCE": "Trải nghiệm", "EXPIRE": "Hết hạn", "EXPLAIN": "Giải thích", "EXPLODE": "Phát nổ", "EXPLORE": "Khám phá", "EXPOSE": "Phơi bày", "EXPRESS": "Bày tỏ", "EXTEND": "Kéo dài", "EXTRACT": "Chiết xuất" },
+            "NATURE": { "AIR": "Không khí", "ANIMAL": "Động vật", "ANT": "Con kiến", "APPLE": "Quả táo", "ASH": "Tro", "AUTUMN": "Mùa thu", "BEACH": "Bãi biển", "BEAR": "Con gấu", "BEAST": "Thú vật", "BEE": "Con ong", "BERRY": "Quả mọng", "BIRD": "Con chim", "BLOOD": "Máu", "BLOSSOM": "Hoa nở", "BRANCH": "Cành cây", "BREEZE": "Gió nhẹ", "BROOK": "Suối", "BUSH": "Bụi cây", "BUTTERFLY": "Bướm", "CANYON": "Hẻm núi", "CAT": "Con mèo", "CAVE": "Hang động", "CELL": "Tế bào", "CHICKEN": "Con gà", "CLAY": "Đất sét", "CLIFF": "Vách đá", "CLIMATE": "Khí hậu", "CLOUD": "Đám mây", "COAST": "Bờ biển", "CORN": "Ngô", "COTTON": "Bông", "COW": "Con bò", "CRAB": "Con cua", "CREEK": "Nhánh sông", "CROP": "Vụ mùa", "CROW": "Con quạ", "CRYSTAL": "Pha lê", "DAWN": "Bình minh", "DAY": "Ngày", "DEER": "Con hươu", "DESERT": "Sa mạc", "DEW": "Sương", "DIAMOND": "Kim cương", "DIRT": "Bụi bẩn", "DOG": "Con chó", "DUCK": "Con vịt", "DUST": "Bụi", "EAGLE": "Đại bàng", "EARTH": "Trái đất", "EGG": "Quả trứng", "ELEPHANT": "Con voi", "ENERGY": "Năng lượng", "FEATHER": "Lông vũ", "FIRE": "Lửa", "FISH": "Cá", "FLAME": "Ngọn lửa", "FLESH": "Thịt", "FLOCK": "Đàn", "FLOOD": "Lũ lụt", "FLOWER": "Bông hoa", "FOG": "Sương mù", "FOREST": "Rừng", "FOSSIL": "Hóa thạch", "FOX": "Con cáo", "FROG": "Con ếch", "FROST": "Sương giá", "FRUIT": "Trái cây", "GALAXY": "Thiên hà", "GARDEN": "Khu vườn", "GARLIC": "Tỏi", "GAS": "Khí gas", "GEM": "Đá quý", "GHOST": "Ma", "GLACIER": "Sông băng", "GLOBE": "Địa cầu", "GOAT": "Con dê", "GOLD": "Vàng", "GRAPE": "Quả nho", "GRASS": "Cỏ", "GRAVITY": "Trọng lực", "GROUND": "Mặt đất", "GULF": "Vịnh", "HAIR": "Tóc", "HARVEST": "Thu hoạch", "HAWK": "Diều hâu", "HEAT": "Nhiệt", "HEAVEN": "Thiên đường", "HERB": "Thảo mộc", "HERD": "Đàn vật nuôi", "HILL": "Ngọn đồi", "HORSE": "Con ngựa", "ICE": "Băng", "INSECT": "Côn trùng", "IRON": "Sắt", "ISLAND": "Hòn đảo", "IVORY": "Ngà", "JUNGLE": "Rừng rậm", "LAKE": "Cái hồ", "LAND": "Đất đai", "LEAF": "Chiếc lá", "LEMON": "Quả chanh", "LIFE": "Sự sống", "LIGHT": "Ánh sáng", "LION": "Sư tử", "LOG": "Khúc gỗ", "MAGNET": "Nam châm", "MEAT": "Thịt", "METAL": "Kim loại", "METEOR": "Sao băng", "MILK": "Sữa", "MINERAL": "Khoáng chất", "MONKEY": "Con khỉ", "MOON": "Mặt trăng", "MORNING": "Buổi sáng", "MOUNTAIN": "Ngọn núi", "MUD": "Bùn", "MUSHROOM": "Nấm", "NATURE": "Thiên nhiên", "NEST": "Cái tổ", "NIGHT": "Ban đêm", "NUT": "Hạt", "OAK": "Cây sồi", "OCEAN": "Đại dương", "OIL": "Dầu", "ORANGE": "Quả cam", "ORBIT": "Quỹ đạo", "OWL": "Con cú", "OXYGEN": "Oxy", "PATH": "Con đường", "PEARL": "Ngọc trai", "PEPPER": "Hạt tiêu", "PET": "Thú cưng", "PIG": "Con lợn", "PINE": "Cây thông", "PLANET": "Hành tinh", "PLANT": "Thực vật", "POISON": "Chất độc", "POND": "Cái ao", "PORK": "Thịt lợn", "POTATO": "Khoai tây", "RABBIT": "Con thỏ", "RAIN": "Cơn mưa", "RAT": "Con chuột", "RAY": "Tia sáng", "RICE": "Gạo", "RIVER": "Con sông", "ROCK": "Hòn đá", "ROOT": "Rễ cây", "ROSE": "Hoa hồng", "RUBBER": "Cao su", "SALT": "Muối", "SAND": "Cát", "SAP": "Nhựa cây", "SEA": "Biển", "SEASON": "Mùa", "SEED": "Hạt giống", "SHADOW": "Cái bóng", "SHARK": "Cá mập", "SHEEP": "Con cừu", "SHELL": "Vỏ sò", "SHORE": "Bờ biển", "SILVER": "Bạc", "SKIN": "Làn da", "SKY": "Bầu trời", "SMOKE": "Khói", "SNAKE": "Con rắn", "SNOW": "Tuyết", "SOIL": "Đất trồng", "SOLAR": "Năng lượng mặt trời", "SOUP": "Món súp", "SPACE": "Không gian", "SPARK": "Tia lửa", "SPIDER": "Con nhện", "SPRING": "Mùa xuân", "STAR": "Ngôi sao", "STEAM": "Hơi nước", "STEEL": "Thép", "STEM": "Thân cây", "STONE": "Hòn đá", "STORM": "Cơn bão", "STRAW": "Rơm", "STREAM": "Dòng suối", "SUGAR": "Đường", "SUMMER": "Mùa hè", "SUN": "Mặt trời", "SUNSET": "Hoàng hôn", "SWAMP": "Đầm lầy", "TEA": "Trà", "TIGER": "Con hổ", "TIMBER": "Gỗ xây dựng", "TOMATO": "Cà chua", "TREE": "Cái cây", "TROPIC": "Nhiệt dới", "UNIVERSE": "Vũ trụ", "VALLEY": "Thung lũng", "VAPOR": "Hơi nước", "VEGETABLE": "Rau củ", "VIRUS": "Vi rút", "VOLCANO": "Núi lửa", "WATER": "Nước", "WAVE": "Cơn sóng", "WEATHER": "Thời tiết", "WEED": "Cỏ dại", "WHALE": "Cá voi", "WHEAT": "Lúa mì", "WIND": "Cơn gió", "WINTER": "Mùa đông", "WOLF": "Con sói", "WOOD": "Gỗ", "WOOL": "Len", "WORM": "Con sâu" },
+            "TECH": { "COMPUTER": "Máy tính", "SCREEN": "Màn hình", "MOUSE": "Chuột", "KEYBOARD": "Bàn phím", "LAPTOP": "Máy tính xách tay", "PHONE": "Điện thoại", "DEVICE": "Thiết bị", "SYSTEM": "Hệ thống", "NETWORK": "Mạng", "INTERNET": "Internet", "SERVER": "Máy chủ", "DATA": "Dữ liệu", "CODE": "Mã", "SOFTWARE": "Phần mềm", "HARDWARE": "Phần cứng", "APP": "Ứng dụng", "FILE": "Tệp", "FOLDER": "Thư mục", "CLOUD": "Đám mây", "LINK": "Liên kết", "CLICK": "Nhấp", "LOGIN": "Đăng nhập", "PASSWORD": "Mật khẩu", "USER": "Người dùng", "PROFILE": "Hồ sơ", "SEARCH": "Tìm kiếm", "UPDATE": "Cập nhật", "UPGRADE": "Nâng cấp", "DOWNLOAD": "Tải xuống", "UPLOAD": "Tải lên", "ROUTER": "Bộ định tuyến", "PIXEL": "Điểm ảnh", "BYTE": "Byte", "CACHE": "Bộ nhớ đệm", "VIRUS": "Vi rút", "HACKER": "Tin tặc" },
+            "FOOD": { "BREAD": "Bánh mì", "BUTTER": "Bơ", "CHEESE": "Phô mai", "MILK": "Sữa", "WATER": "Nước", "JUICE": "Nước ép", "WINE": "Rượu", "BEER": "Bia", "COFFEE": "Cà phê", "TEA": "Trà", "SUGAR": "Đường", "SALT": "Muối", "PEPPER": "Hạt tiêu", "SOUP": "Súp", "SALAD": "Salad", "MEAT": "Thịt", "CHICKEN": "Gà", "BEEF": "Thịt bò", "PORK": "Thịt lợn", "FISH": "Cá", "EGG": "Trứng", "APPLE": "Táo", "BANANA": "Chuối", "ORANGE": "Cam", "GRAPE": "Nho", "MELON": "Dưa", "BERRY": "Quả mọng", "LEMON": "Chanh", "ONION": "Hành tây", "GARLIC": "Tỏi", "POTATO": "Khoai tây", "TOMATO": "Cà chua", "CARROT": "Cà rốt", "BEAN": "Đậu", "RICE": "Gạo", "NOODLE": "Mì", "CAKE": "Bánh", "PIE": "Bánh nướng", "COOKIE": "Bánh quy", "CANDY": "Kẹo", "CHOCOLATE": "Sô cô la", "ICE": "Đá", "CREAM": "Kem", "SNACK": "Đồ ăn nhẹ", "MEAL": "Bữa ăn", "BREAKFAST": "Bữa sáng", "LUNCH": "Bữa trưa", "DINNER": "Bữa tối" },
+            "BODY": { "HEAD": "Đầu", "HAIR": "Tóc", "FACE": "Khuôn mặt", "EYE": "Mắt", "EAR": "Tai", "NOSE": "Mũi", "MOUTH": "Miệng", "LIP": "Môi", "TOOTH": "Răng", "TONGUE": "Lưỡi", "NECK": "Cổ", "SHOULDER": "Vai", "ARM": "Cánh tay", "ELBOW": "Khuỷu tay", "WRIST": "Cổ tay", "HAND": "Bàn tay", "FINGER": "Ngón tay", "THUMB": "Ngón cái", "CHEST": "Ngực", "HEART": "Trái tim", "STOMACH": "Dạ dày", "BACK": "Lưng", "WAIST": "Eo", "HIP": "Hông", "LEG": "Chân", "KNEE": "Đầu gối", "ANKLE": "Mắt cá chân", "FOOT": "Bàn chân", "TOE": "Ngón chân", "SKIN": "Da", "BONE": "Xương", "BLOOD": "Máu", "MUSCLE": "Cơ bắp", "BRAIN": "Não" },
+            "EMOTION": { "HAPPY": "Hạnh phúc", "SAD": "Buồn", "ANGRY": "Tức giận", "AFRAID": "Sợ hãi", "BRAVE": "Dũng cảm", "CALM": "Bình tĩnh", "PROUD": "Tự hào", "GUILTY": "Có tội", "SHY": "Xấu hổ", "LONELY": "Cô đơn", "TIRED": "Mệt mỏi", "WEAK": "Yếu", "STRONG": "Mạnh mẽ", "SMART": "Thông minh", "STUPID": "Ngốc nghếch", "CRAZY": "Điên", "FUNNY": "Vui nhộn", "SERIOUS": "Nghiêm túc", "KIND": "Tử tế", "CRUEL": "Tàn nhẫn", "POLITE": "Lịch sự", "RUDE": "Thô lỗ", "HONEST": "Trung thực", "FAK": "Giả dối", "RICH": "Giàu có", "POOR": "Nghèo", "CHEAP": "Rẻ", "EXPENSIVE": "Đắt", "CLEAN": "Sạch", "DIRTY": "Bẩn", "SAFE": "An toàn", "DANGEROUS": "Nguy hiểm", "LUCKY": "May mắn", "READY": "Sẵn sàng" }
+        };
+
+        const FLAT_DICT = new Map();
+        Object.values(VOCAB_DATA).forEach(category => {
+            Object.entries(category).forEach(([word, meaning]) => FLAT_DICT.set(word, meaning));
+        });
+
+        const GRID_SIZE = 10;
+        let grid = [];
+        let selectedPath = [];
+        let isDragging = false;
+        let isProcessing = false;
+        let score = 0;
+        let foundWordsCount = 0;
+        let remainingCells = 100;
+        let wordListArray = Array.from(FLAT_DICT.keys());
+
+        // Theo dõi từ để đảm bảo không trùng lượt cũ
+        let lastRefreshWords = new Set();
+        let currentTurnWords = new Set();
+
+        const board = document.getElementById('game-board');
+        const preview = document.getElementById('current-word');
+        const historyEl = document.getElementById('history');
+        const remainingEl = document.getElementById('remaining-count');
+        const scoreEl = document.getElementById('score-val');
+
+        const fullCache = new Map();
+
+        async function getWordData(word) {
+            const wordUpper = word.toUpperCase();
+            const wordLower = word.toLowerCase();
+
+            // Kiểm tra cache để tránh gọi API nhiều lần
+            if (fullCache.has(wordLower)) return fullCache.get(wordLower);
+
+            // 1. Ưu tiên kiểm tra trong danh sách từ vựng gốc (NATURE/ACTION...)
+            if (FLAT_DICT.has(wordUpper)) {
+                const result = { valid: true, meaning: FLAT_DICT.get(wordUpper) };
+                fullCache.set(wordLower, result);
+                return result;
+            }
+
+            try {
+                // 2. Kiểm tra Dictionary API để đảm bảo là từ tiếng Anh có nghĩa
+                const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${wordLower}`);
+                if (!res.ok) throw new Error("Invalid word");
+                const dictData = await res.json();
+
+                // 3. Loại bỏ từ viết tắt (NASA, CEO...)
+                let isAbbreviation = false;
+                const forbiddenKeywords = ["abbreviation", "acronym", "initialism", "short for", "symbol for"];
+
+                for (const entry of dictData) {
+                    for (const meaning of entry.meanings) {
+                        if (meaning.partOfSpeech.toLowerCase().includes("abbr")) {
+                            isAbbreviation = true; break;
+                        }
+                        for (const def of meaning.definitions) {
+                            if (forbiddenKeywords.some(k => def.definition.toLowerCase().includes(k))) {
+                                isAbbreviation = true; break;
+                            }
+                        }
+                        if (isAbbreviation) break;
+                    }
+                    if (isAbbreviation) break;
+                }
+                if (isAbbreviation) return { valid: false };
+
+                // 4. Dịch bằng Google Translate API (Thay cho MyMemory)
+                const transRes = await fetch(
+                    `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=vi&dt=t&q=${encodeURIComponent(wordLower)}`
+                );
+                if (!transRes.ok) throw new Error("Translation failed");
+
+                const transData = await transRes.json();
+                let translatedText = transData[0][0][0];
+
+                // 5. Hậu kiểm bản dịch
+                const cleanTrans = translatedText.replace(/[^\p{L}\p{N}\s]/gu, '').trim().toLowerCase();
+
+                // Loại bỏ nếu Google không dịch được (trả về đúng từ gốc) hoặc kết quả quá ngắn
+                if (cleanTrans === wordLower || cleanTrans.length < 2) {
+                    return { valid: false };
+                }
+
+                const finalMeaning = translatedText.replace(/[:?!\.\s]+$/, '').trim().toUpperCase();
+                const result = { valid: true, meaning: finalMeaning };
+
+                fullCache.set(wordLower, result);
+                return result;
+
+            } catch (error) {
+                return { valid: false };
+            }
+        }
+
+        // Cấu hình: Ngưỡng kích hoạt hỗ trợ (ví dụ còn 8 ô trở xuống)
+        const ASSIST_THRESHOLD = 8;
+
+        function applyEndGameAssist() {
+            // 1. Đếm và thu thập tất cả các ô còn lại trên grid
+            let remainingPositions = [];
+            for (let r = 0; r < GRID_SIZE; r++) {
+                for (let c = 0; c < GRID_SIZE; c++) {
+                    if (grid[r][c] !== null) {
+                        remainingPositions.push({ r, c, char: grid[r][c] });
+                    }
+                }
+            }
+
+            const count = remainingPositions.length;
+
+            // Chỉ kích hoạt khi số ô ít và nằm trong ngưỡng hỗ trợ
+            if (count > 0 && count <= ASSIST_THRESHOLD) {
+                console.log("Kích hoạt hỗ trợ hồi kết cho " + count + " ô.");
+
+                // 2. Tìm một từ trong từ điển có độ dài đúng bằng số ô còn lại
+                let targetWord = "";
+                const candidates = wordListArray.filter(w => w.length === count);
+
+                if (candidates.length > 0) {
+                    targetWord = candidates[Math.floor(Math.random() * candidates.length)];
+                } else {
+                    // Nếu không có từ độ dài chính xác, lấy đại một từ và cắt/thêm (trường hợp hiếm)
+                    targetWord = wordListArray[0].substring(0, count).padEnd(count, 'A');
+                }
+
+                // 3. Xóa sạch grid hiện tại để sắp xếp lại vị trí
+                for (let r = 0; r < GRID_SIZE; r++) {
+                    for (let c = 0; c < GRID_SIZE; c++) grid[r][c] = null;
+                }
+
+                // 4. Tính toán vị trí trung tâm để đặt các ô sát nhau
+                // Ví dụ: Đặt ở hàng giữa (GRID_SIZE / 2), bắt đầu từ cột giữa
+                const targetRow = Math.floor(GRID_SIZE / 2);
+                const startCol = Math.floor((GRID_SIZE - count) / 2);
+
+                for (let i = 0; i < count; i++) {
+                    grid[targetRow][startCol + i] = targetWord[i];
+                }
+
+                // 5. Vẽ lại bàn chơi và thông báo
+                renderBoard();
+
+                // Hiệu ứng nháy các ô vừa tạo để người chơi chú ý
+                const newCells = document.querySelectorAll('.cell:not(.empty)');
+                newCells.forEach(cell => {
+                    cell.classList.add('ring-4', 'ring-yellow-400', 'animate-pulse');
+                });
+
+                // Hiện thông báo nhẹ
+                const toast = document.getElementById('toast');
+                toast.textContent = "✨ HỖ TRỢ: CÁC Ô ĐÃ ĐƯỢC GOM LẠI ĐỂ HOÀN TẤT!";
+                toast.style.display = 'block';
+                setTimeout(() => toast.style.display = 'none', 3000);
+            }
+        }
+
+        function initGame() {
+            grid = Array.from({ length: GRID_SIZE }, () => Array(GRID_SIZE).fill(null));
+            currentTurnWords.clear();
+            buildStarClusters();
+            fillRemainingGaps();
+
+            // Cập nhật mốc từ để lượt tiếp theo (nếu có reset hoặc auto-refresh) KHÔNG bị trùng lại
+            lastRefreshWords = new Set(currentTurnWords);
+
+            renderBoard();
+            updateStats();
+        }
+
+        // --- CORE ALGORITHM: GHÉP TỪ VÀ TRÁNH TRÙNG LẶP ---
+        // Hàm sinh mảng từ vựng lấp đầy chính xác 'totalLen' kí tự, loại bỏ hoàn toàn list cũ
+        function getExactLengthWords(totalLen) {
+            let available = wordListArray.filter(w => !lastRefreshWords.has(w));
+            if (available.length < 20) available = wordListArray; // Failsafe an toàn
+
+            function search(target, currentArr) {
+                if (target === 0) return currentArr;
+                if (target < 3) return null;
+
+                let maxL = Math.min(6, target);
+                let lengths = [];
+                for (let l = 3; l <= maxL; l++) lengths.push(l);
+                lengths.sort(() => Math.random() - 0.5);
+
+                for (let l of lengths) {
+                    let cands = available.filter(w => w.length === l);
+                    if (cands.length > 0) {
+                        let w = cands[Math.floor(Math.random() * cands.length)];
+                        let res = search(target - l, [...currentArr, w]);
+                        if (res) return res;
+                    }
+                }
+                return null;
+            }
+
+            let res = search(totalLen, []);
+            if (!res) {
+                // Trọng tâm fallback nếu số ô dư bị mắc kẹt (chỉ xảy ra hiếm hoi khi < 3 cell)
+                let w = available.find(x => x.length >= 3) || available[0];
+                return [w.substring(0, totalLen)];
+            }
+            return res;
+        }
+
+        // Định nghĩa lại buildStarClusters lấp đầy lưới theo khối liên tục (Snake)
+        // 100% các ô trên bảng sẽ CHẮC CHẮN nối thành các từ được cấp, loại trừ rác "A", "E"
+        function buildStarClusters() {
+            let words = getExactLengthWords(100);
+            let snake = [];
+            for (let r = 0; r < GRID_SIZE; r++) {
+                for (let c = 0; c < GRID_SIZE; c++) {
+                    snake.push({ r, c: r % 2 === 0 ? c : GRID_SIZE - 1 - c });
+                }
+            }
+            let idx = 0;
+            for (let w of words) {
+                currentTurnWords.add(w);
+                for (let char of w) {
+                    if (idx < 100) {
+                        let pos = snake[idx++];
+                        grid[pos.r][pos.c] = char;
+                    }
+                }
+            }
+        }
+
+        function fillRemainingGaps() {
+            // Không thực thi do buildStarClusters mới đã hoàn toàn lấp đầy bảng không kẽ hở
+        }
+
+        // Sắp xếp các ô liền kề để auto-refresh luôn nối các từ đúng mạch
+        function sortCoordsContiguously(coords) {
+            if (coords.length <= 1) return coords;
+            let sorted = [coords.shift()];
+            while (coords.length > 0) {
+                let last = sorted[sorted.length - 1];
+                let bestIdx = 0;
+                let bestDist = Infinity;
+                for (let i = 0; i < coords.length; i++) {
+                    let d = Math.max(Math.abs(coords[i].r - last.r), Math.abs(coords[i].c - last.c));
+                    if (d < bestDist) { bestDist = d; bestIdx = i; }
+                }
+                sorted.push(coords.splice(bestIdx, 1)[0]);
+            }
+            return sorted;
+        }
+
+        function renderBoard() {
+            const cells = board.querySelectorAll('.cell');
+            cells.forEach(c => c.remove());
+
+            for (let r = 0; r < GRID_SIZE; r++) {
+                for (let c = 0; c < GRID_SIZE; c++) {
+                    const cell = document.createElement('div');
+                    cell.className = `cell ${grid[r][c] ? '' : 'empty'}`;
+                    cell.textContent = grid[r][c] || '';
+                    cell.dataset.r = r;
+                    cell.dataset.c = c;
+
+                    cell.onpointerdown = (e) => {
+                        cell.releasePointerCapture(e.pointerId);
+                        handleStart(r, c);
+                    };
+                    cell.onpointerenter = () => handleMove(r, c);
+
+                    board.appendChild(cell);
+                }
+            }
+        }
+
+        function handleStart(r, c, e) {
+            if (grid[r][c] === null) return;
+            isDragging = true;
+            selectedPath = [{ r, c }];
+            updateUI();
+        }
+
+        function handleMove(r, c) {
+            if (!isDragging || grid[r][c] === null) return;
+            const last = selectedPath[selectedPath.length - 1];
+            if (last.r === r && last.c === c) return;
+            if (Math.abs(r - last.r) <= 1 && Math.abs(c - last.c) <= 1) {
+                const idx = selectedPath.findIndex(p => p.r === r && p.c === c);
+                if (idx !== -1) selectedPath = selectedPath.slice(0, idx + 1);
+                else selectedPath.push({ r, c });
+                updateUI();
+            }
+        }
+
+        async function handleEnd() {
+            if (!isDragging || isProcessing) return;
+            isDragging = false;
+
+            const word = selectedPath.map(p => grid[p.r][p.c]).join('');
+
+            if (selectedPath.length < 3) {
+                selectedPath = [];
+                updateUI();
+                return;
+            }
+
+            isProcessing = true;
+            const data = await getWordData(word);
+
+            if (data.valid) {
+                await processCorrectWord(word, data.meaning);
+            }
+
+            selectedPath = [];
+            updateUI();
+            isProcessing = false;
+        }
+
+        async function processCorrectWord(word, meaning) {
+            const points = word.length * 100;
+            score += points; foundWordsCount++;
+            document.getElementById('empty-log')?.remove();
+            const item = document.createElement('div');
+            item.className = 'word-item shadow-sm';
+            item.innerHTML = `<div class="flex justify-between items-center"><span class="font-black text-white text-lg tracking-widest">${word}</span><span class="text-blue-400 font-bold">+${points}</span></div><div class="text-slate-500 text-[11px] font-bold uppercase mt-1">${meaning}</div>`;
+            historyEl.prepend(item);
+            const pathCopy = [...selectedPath];
+            pathCopy.forEach(p => document.querySelector(`[data-r="${p.r}"][data-c="${p.c}"]`).classList.add('removing'));
+            await new Promise(r => setTimeout(r, 300));
+            pathCopy.forEach(p => grid[p.r][p.c] = null);
+            applyGravity();
+            renderBoard();
+            updateStats();
+
+            if (remainingCells === 0) {
+                document.getElementById('win-modal').classList.remove('hidden');
+            } else {
+                // Kiểm tra xem có cần hỗ trợ gom ô không
+                if (remainingCells <= ASSIST_THRESHOLD) {
+                    // Đợi một chút cho hiệu ứng cũ biến mất rồi mới gom ô
+                    setTimeout(() => {
+                        applyEndGameAssist();
+                    }, 400);
+                } else {
+                    checkDeadlock();
+                }
+            }
+        }
+
+        function applyGravity() {
+            for (let c = 0; c < GRID_SIZE; c++) {
+                let col = [];
+                for (let r = GRID_SIZE - 1; r >= 0; r--) if (grid[r][c] !== null) col.push(grid[r][c]);
+                for (let r = 0; r < GRID_SIZE; r++) grid[GRID_SIZE - 1 - r][c] = r < col.length ? col[r] : null;
+            }
+        }
+
+        function updateStats() {
+            remainingCells = 0;
+            for (let r = 0; r < GRID_SIZE; r++) for (let c = 0; c < GRID_SIZE; c++) if (grid[r][c] !== null) remainingCells++;
+            remainingEl.textContent = remainingCells;
+            scoreEl.textContent = score;
+            document.getElementById('word-count').textContent = `${foundWordsCount} TỪ`;
+        }
+
+        function checkDeadlock() {
+            let hasMove = false;
+            for (let r = 0; r < GRID_SIZE; r++) {
+                for (let c = 0; c < GRID_SIZE; c++) {
+                    if (grid[r][c] !== null && dfsFindWord(r, c, "", new Set())) { hasMove = true; break; }
+                }
+                if (hasMove) break;
+            }
+            if (!hasMove && remainingCells > 0) autoRefreshRemaining();
+        }
+
+        function dfsFindWord(r, c, currentWord, visited) {
+            const pos = `${r},${c}`;
+            visited.add(pos);
+            currentWord += grid[r][c];
+            if (currentWord.length >= 3 && FLAT_DICT.has(currentWord)) { visited.delete(pos); return true; }
+            if (currentWord.length < 8) {
+                const dirs = [[0, 1], [0, -1], [1, 0], [-1, 0], [1, 1], [-1, -1], [1, -1], [-1, 1]];
+                for (let dir of dirs) {
+                    const nr = r + dir[0], nc = c + dir[1];
+                    if (nr >= 0 && nr < GRID_SIZE && nc >= 0 && nc < GRID_SIZE && grid[nr][nc] !== null && !visited.has(`${nr},${nc}`)) {
+                        if (dfsFindWord(nr, nc, currentWord, visited)) { visited.delete(pos); return true; }
+                    }
+                }
+            }
+            visited.delete(pos);
+            return false;
+        }
+
+        function autoRefreshRemaining() {
+            document.getElementById('toast').style.display = 'block';
+            setTimeout(() => document.getElementById('toast').style.display = 'none', 3000);
+
+            let currentCount = remainingCells;
+            let coords = [];
+            for (let c = 0; c < GRID_SIZE; c++) {
+                for (let r = GRID_SIZE - 1; r >= 0; r--) {
+                    if (grid[r][c] !== null) {
+                        coords.push({ r, c });
+                        grid[r][c] = null;
+                    }
+                }
+            }
+
+            // Sắp xếp các ô tồn đọng lại với nhau một cách liền mạch nhất
+            coords = sortCoordsContiguously(coords);
+            let words = getExactLengthWords(currentCount);
+            let idx = 0;
+
+            for (let w of words) {
+                currentTurnWords.add(w);
+                for (let i = 0; i < w.length; i++) {
+                    if (idx < coords.length) {
+                        grid[coords[idx].r][coords[idx].c] = w[i];
+                        idx++;
+                    }
+                }
+            }
+
+            // Đảm bảo lượt này tiếp tục được ghi nhớ để tránh trùng lặp đợt tới
+            lastRefreshWords = new Set(currentTurnWords);
+            currentTurnWords.clear();
+            renderBoard();
+        }
+
+        function updateUI() {
+            board.querySelectorAll('.cell').forEach(c => c.classList.remove('selected'));
+            selectedPath.forEach(p => document.querySelector(`[data-r="${p.r}"][data-c="${p.c}"]`)?.classList.add('selected'));
+            const word = selectedPath.map(p => grid[p.r][p.c]).join('');
+            preview.textContent = word || '---';
+            preview.style.opacity = word ? '1' : '0';
+            preview.style.transform = word ? 'scale(1)' : 'scale(0.9)';
+            drawLines();
+        }
+
+        function drawLines() {
+            const svg = document.getElementById('selection-line');
+            svg.innerHTML = '';
+            if (selectedPath.length < 2) return;
+            const rect = board.getBoundingClientRect();
+            let pts = "";
+            selectedPath.forEach(p => {
+                const el = document.querySelector(`[data-r="${p.r}"][data-c="${p.c}"]`);
+                const r = el.getBoundingClientRect();
+                pts += `${r.left - rect.left + r.width / 2},${r.top - rect.top + r.height / 2} `;
+            });
+            const poly = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+            poly.setAttribute("points", pts); poly.setAttribute("stroke", "#3b82f6");
+            poly.setAttribute("stroke-width", "8"); poly.setAttribute("fill", "none");
+            poly.setAttribute("stroke-linecap", "round"); poly.setAttribute("stroke-linejoin", "round");
+            poly.setAttribute("stroke-opacity", "0.6");
+            svg.appendChild(poly);
+        }
+
+        function resetGame() {
+            score = 0; foundWordsCount = 0;
+            document.getElementById('win-modal').classList.add('hidden');
+            historyEl.innerHTML = '<div id="empty-log" class="text-center text-slate-600 text-sm mt-10 font-medium italic">Kéo các chữ cái để bắt đầu...</div>';
+            initGame();
+        }
+
+        board.addEventListener('touchstart', (e) => {
+            const t = e.touches[0], target = document.elementFromPoint(t.clientX, t.clientY);
+            if (target && target.dataset.r) handleStart(parseInt(target.dataset.r), parseInt(target.dataset.c), e);
+        }, { passive: false });
+
+        board.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            const t = e.touches[0], target = document.elementFromPoint(t.clientX, t.clientY);
+            if (target && target.dataset.r) handleMove(parseInt(target.dataset.r), parseInt(target.dataset.c));
+        }, { passive: false });
+
+        window.addEventListener('mouseup', handleEnd);
+        window.addEventListener('touchend', handleEnd);
+        window.onload = initGame;
+    </script>
+</body>
+</html>
