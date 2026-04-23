@@ -11,10 +11,8 @@
         body {
             background: #0f172a;
             font-family: 'Outfit', sans-serif;
-            touch-action: none;
-            overflow: hidden;
             color: #f1f5f9;
-            height: 100vh;
+            min-height: 100vh;
             display: flex;
             flex-direction: column;
         }
@@ -822,13 +820,21 @@
 
         board.addEventListener('touchstart', (e) => {
             const t = e.touches[0], target = document.elementFromPoint(t.clientX, t.clientY);
-            if (target && target.dataset.r) handleStart(parseInt(target.dataset.r), parseInt(target.dataset.c), e);
-        }, { passive: false });
+            if (target && target.dataset.r) {
+                handleStart(parseInt(target.dataset.r), parseInt(target.dataset.c), e);
+            }
+        }, { passive: true });
 
         board.addEventListener('touchmove', (e) => {
-            e.preventDefault();
-            const t = e.touches[0], target = document.elementFromPoint(t.clientX, t.clientY);
-            if (target && target.dataset.r) handleMove(parseInt(target.dataset.r), parseInt(target.dataset.c));
+            if (isDragging) {
+                if (e.cancelable) e.preventDefault();
+
+                const t = e.touches[0];
+                const target = document.elementFromPoint(t.clientX, t.clientY);
+                if (target && target.dataset.r) {
+                    handleMove(parseInt(target.dataset.r), parseInt(target.dataset.c));
+                }
+            }
         }, { passive: false });
 
         window.addEventListener('mouseup', handleEnd);
